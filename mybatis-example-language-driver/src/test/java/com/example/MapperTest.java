@@ -21,7 +21,7 @@ public class MapperTest {
         user.setId(111L);
         user.setAccount("conanli");
         userMapper.insert(user);
-        System.out.println("insert: " + userMapper.getById(111L));
+        System.out.println("insert: " + user);
 
         user = new User();
         user.setId(111L);

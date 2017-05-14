@@ -3,15 +3,11 @@ package com.example.mapper;
 import com.example.mybatis.BaseMapperDriver;
 import org.apache.ibatis.annotations.*;
 
-import java.util.List;
-
 public interface BaseMapper<T, K> {
 
     @Lang(BaseMapperDriver.class)
     @Insert({"<script>", "INSERT INTO ${table} ${values}", "</script>"})
     public Long insert(T model);
-
-    public Long inserts(List<T> list);
 
     @Lang(BaseMapperDriver.class)
     @Update({"<script>", "UPDATE ${table} ${sets} WHERE ${id}=#{id}", "</script>"})
