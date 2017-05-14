@@ -1,17 +1,7 @@
-# Spring杂谈
+# Mybatis杂谈
 
-[Spring - Web](spring-example-web)
+[Mybatis 持久层框架](mybatis-example-hello-world)
 
-- WebApplicationInitializer
+[Mybatis - 纯注解、零XML](mybatis-example-no-xml)
 
-[Spring - Bean Scope 作用域](spring-example-bean-scope)
-
-- singleton
-- prototype
-- request（Web）
-- session（Web）
-- globalSession（Web）
-
-[Spring - Multi Transaction 复合事务](spring-example-multi-transaction)
-
-- TransactionDefinition
+[Mybatis - 自定义BaseMapper](mybatis-example-language-driver)
