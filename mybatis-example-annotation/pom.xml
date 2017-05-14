@@ -4,11 +4,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.example</groupId>
-    <artifactId>mybatis-example-no-xml</artifactId>
+    <artifactId>mybatis-example-annotation</artifactId>
     <version>0.0.1</version>
     <packaging>jar</packaging>
 
-    <name>no-xml</name>
+    <name>annotation</name>
     <description>Example project for Mybatis</description>
 
     <properties>
