@@ -8,9 +8,9 @@ MyBatis 从 3.2 开始支持可插拔的脚本语言，因此你可以在插入�
 
 ```java
 public interface LanguageDriver {
-  ParameterHandler createParameterHandler(MappedStatement mappedStatement, Object parameterObject, BoundSql boundSql);
-  SqlSource createSqlSource(Configuration configuration, XNode script, Class<?> parameterType);
-  SqlSource createSqlSource(Configuration configuration, String script, Class<?> parameterType);
+    ParameterHandler createParameterHandler(MappedStatement mappedStatement, Object parameterObject, BoundSql boundSql);
+    SqlSource createSqlSource(Configuration configuration, XNode script, Class<?> parameterType);
+    SqlSource createSqlSource(Configuration configuration, String script, Class<?> parameterType);
 }
 ```
 
@@ -18,10 +18,10 @@ public interface LanguageDriver {
 
 ```xml
 <typeAliases>
-  <typeAlias type="org.sample.MyLanguageDriver" alias="myLanguage"/>
+    <typeAlias type="org.sample.MyLanguageDriver" alias="myLanguage"/>
 </typeAliases>
 <settings>
-  <setting name="defaultScriptingLanguage" value="myLanguage"/>
+    <setting name="defaultScriptingLanguage" value="myLanguage"/>
 </settings>
 ```
 
@@ -29,7 +29,7 @@ public interface LanguageDriver {
 
 ```xml
 <select id="selectBlog" lang="myLanguage">
-  SELECT * FROM BLOG
+    SELECT * FROM BLOG
 </select>
 ```
 
@@ -37,9 +37,9 @@ public interface LanguageDriver {
 
 ```java
 public interface Mapper {
-  @Lang(MyLanguageDriver.class)
-  @Select("SELECT * FROM BLOG")
-  List<Blog> selectBlog();
+    @Lang(MyLanguageDriver.class)
+    @Select("SELECT * FROM BLOG")
+    List<Blog> selectBlog();
 }
 ```
 
@@ -49,7 +49,6 @@ public interface Mapper {
 
 ```java
 public interface BaseMapper<T, K> {
-
     @Lang(BaseMapperDriver.class)
     @Insert({"<script>", "INSERT INTO ${table} ${values}", "</script>"})
     public Long insert(T model);
@@ -69,7 +68,6 @@ public interface BaseMapper<T, K> {
     @Lang(BaseMapperDriver.class)
     @Select("SELECT COUNT(1) FROM ${table} WHERE ${id}=#{id}")
     public Boolean existById(@Param("id") K id);
-
 }
 ```
 
