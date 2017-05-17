@@ -1,4 +1,4 @@
-package com.example.mapper;
+package com.example.mybatis;
 
 import com.example.mybatis.BaseMapperDriver;
 import org.apache.ibatis.annotations.*;

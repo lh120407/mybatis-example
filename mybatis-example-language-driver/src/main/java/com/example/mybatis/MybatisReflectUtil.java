@@ -1,6 +1,6 @@
 package com.example.mybatis;
 
-import com.example.mapper.BaseMapper;
+import com.example.mybatis.BaseMapper;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
