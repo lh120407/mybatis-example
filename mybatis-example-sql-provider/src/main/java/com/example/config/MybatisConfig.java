@@ -21,7 +21,7 @@ public class MybatisConfig {
             Environment environment = new Environment("development", transactionFactory, dataSource);
             Configuration configuration = new Configuration(environment);
             configuration.addMapper(UserMapper.class);
-            SqlSourceBuilder.build(configuration);
+            // SqlSourceBuilder.build(configuration);
             sessionFactory = new SqlSessionFactoryBuilder().build(configuration);
         }
         return sessionFactory;

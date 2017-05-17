@@ -16,10 +16,31 @@ public class MapperTest {
 
         UserMapper userMapper = session.getMapper(UserMapper.class);
 
-        User user = new User();
+        User user = null;
 
-        user = userMapper.getById(1L);
-        System.out.println("user:" + user);
+        // 新增测试
+        user = new User();
+        user.setId(22L);
+        user.setAccount("conanli");
+        user.setPassword("123456");
+        System.out.println("insert: " + userMapper.insert(user));
+        System.out.println("user:" + userMapper.getById(user.getId()));
+
+        // 更新测试
+        // user = new User();
+        // user.setId(1L);
+        // user.setAccount("conanli");
+        // System.out.println("update: " + userMapper.updateById(user));
+        // System.out.println("user:" + userMapper.getById(1L));
+
+        // 获取测试
+        // System.out.println("user:" + userMapper.getById(1L));
+
+        // 删除测试
+        // System.out.println("delete:" + userMapper.deleteById(1L));
+
+        // 是否存在测试
+        // System.out.println("exist:" + userMapper.existById(1L));
 
         session.commit();
         session.close();
