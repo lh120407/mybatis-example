@@ -1,7 +1,7 @@
 package com.example.config;
 
 import com.example.mapper.UserMapper;
-import com.example.mybatis.BaseMapperHandler;
+import com.example.mybatis.SqlSourceBuilder;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.Configuration;
@@ -21,10 +21,7 @@ public class MybatisConfig {
             Environment environment = new Environment("development", transactionFactory, dataSource);
             Configuration configuration = new Configuration(environment);
             configuration.addMapper(UserMapper.class);
-
-            BaseMapperHandler handler = new BaseMapperHandler();
-            handler.handle(configuration);
-
+            SqlSourceBuilder.build(configuration);
             sessionFactory = new SqlSessionFactoryBuilder().build(configuration);
         }
         return sessionFactory;

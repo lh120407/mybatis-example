@@ -1,6 +1,6 @@
-package com.example.mapper;
+package com.example.mybatis;
 
-import com.example.mybatis.BaseMapperProvider;
+import com.example.mybatis.SqlSourceBuilder;
 import org.apache.ibatis.annotations.*;
 
 public interface BaseMapper<T, K> {
@@ -11,7 +11,7 @@ public interface BaseMapper<T, K> {
 
     public Long deleteById(@Param("id") K id);
 
-    @SelectProvider(type = BaseMapperProvider.class, method = "build")
+    @SelectProvider(type = SqlSourceBuilder.class, method = "build")
     public T getById(@Param("id") K id);
 
     public Boolean existById(@Param("id") K id);
