@@ -22,27 +22,23 @@ public class SqlSourceBuilder {
     public static String build(Configuration configuration) {
         for (MappedStatement mappedStatement : configuration.getMappedStatements()) {
             if (mappedStatement.getSqlSource() instanceof ProviderSqlSource) {
+                Class<?> providerClass = getProviderClass(mappedStatement);
+                if (providerClass != SqlSourceBuilder.class)
+                    continue;
 
                 Class<?> mapperClass = getMapperClass(mappedStatement);
                 Class<?>[] generics = getMapperGenerics(mapperClass);
                 Class<?> modelClass = generics[0];
                 Class<?> primaryFieldClass = generics[1];
-                Method builderMethod = getBuilderMethod(mappedStatement, SqlSourceBuilder.class, MappedStatement.class, Class.class, Class.class, Class.class, Method.class, ResultMap.class);
                 ResultMap resultMap = getResultMap(mappedStatement, modelClass);
 
-                String script = null;
-                try {
-                    script = builderMethod.invoke(null, mappedStatement, mapperClass, modelClass, primaryFieldClass, builderMethod, resultMap).toString();
-                } catch (IllegalAccessException | InvocationTargetException e) {
-                    throw new RuntimeException(e);
-                }
-                SqlSource sqlSource = createSqlSource(mappedStatement, script);
+                String sqlScript = getSqlScript(mappedStatement, mapperClass, modelClass, primaryFieldClass, resultMap);
+                SqlSource sqlSource = createSqlSource(mappedStatement, sqlScript);
                 setSqlSource(mappedStatement, sqlSource);
             }
         }
         return "sql";
     }
-
 
     private static SqlSource createSqlSource(MappedStatement mappedStatement, String script) {
         return languageDriver.createSqlSource(mappedStatement.getConfiguration(), "<script>" + script + "</script>", null);
@@ -53,80 +49,7 @@ public class SqlSourceBuilder {
         metaObject.setValue("sqlSource", sqlSource);
     }
 
-    private static Class<?> getMapperClass(MappedStatement mappedStatement) {
-        try {
-            String mappedStatementId = mappedStatement.getId();
-            String className = mappedStatementId.substring(0, mappedStatementId.lastIndexOf("."));
-            return Class.forName(className);
-        } catch (ClassNotFoundException e) {
-            return null;
-        }
-    }
-
-    private static Method getMapperMethod(MappedStatement mappedStatement, Class<?> mapperClass, Class<?>... parameterTypes) {
-        try {
-            String mappedStatementId = mappedStatement.getId();
-            String methodName = mappedStatementId.substring(mappedStatementId.lastIndexOf(".") + 1);
-            return mapperClass.getDeclaredMethod(methodName, parameterTypes);
-        } catch (NoSuchMethodException e) {
-            Type type = mapperClass.getSuperclass();
-            if (type != null) {
-                Method method =  getMapperMethod(mappedStatement, (Class<?>) type, parameterTypes);
-                if (method != null)
-                    return method;
-            }
-            Type[] types = mapperClass.getInterfaces();
-            for (Type type2 : types) {
-                Method method =  getMapperMethod(mappedStatement, (Class<?>) type2, parameterTypes);
-                if (method != null)
-                    return method;
-            }
-            return null;
-        }
-    }
-
-    private static Method getMapperMethod0(MappedStatement mappedStatement, Class<?> mapperClass, Class<?>... parameterTypes) {
-        String mappedStatementId = mappedStatement.getId();
-        String methodName = mappedStatementId.substring(mappedStatementId.lastIndexOf(".") + 1);
-        Method[] methods = mapperClass.getMethods();
-        for (Method method : methods) {
-            if (!method.getName().equals(methodName))
-                continue;
-            Class<?>[] types = method.getParameterTypes();
-            if (types.length == parameterTypes.length) {
-                boolean isEqual = true;
-                for (int i = 0; i < types.length; i ++) {
-                    if (types[i] == Object.class)
-                        continue;
-                    if (types[i] != parameterTypes[i])
-                        isEqual = false;
-                }
-                if (isEqual)
-                    return method;
-            }
-        }
-        return null;
-    }
-
-    private static Method getBuilderMethod(MappedStatement mappedStatement, Class<?> builderClass, Class<?>... parameterTypes) {
-        try {
-            String mappedStatementId = mappedStatement.getId();
-            String methodName = mappedStatementId.substring(mappedStatementId.lastIndexOf(".") + 1);
-            return builderClass.getDeclaredMethod(methodName, parameterTypes);
-        } catch (NoSuchMethodException e) {
-            return null;
-        }
-    }
-
-    private static ResultMap getResultMap(MappedStatement mappedStatement, Class<?> modelClass) {
-        Configuration configuration = mappedStatement.getConfiguration();
-        for (ResultMap resultMap : configuration.getResultMaps())
-            if (modelClass == resultMap.getType() && !resultMap.getId().contains("-"))
-                return resultMap;
-        return null;
-    }
-
-    private static String getById(MappedStatement mappedStatement, Class<?> mapperClass, Class<?> modelClass, Class<?> primaryFieldClass, Method builderMethod, ResultMap resultMap) {
+    private static String getById(MappedStatement mappedStatement, Class<?> mapperClass, Class<?> modelClass, Class<?> primaryFieldClass, ResultMap resultMap) {
         try {
             StringBuilder buf = new StringBuilder();
 
@@ -136,17 +59,17 @@ public class SqlSourceBuilder {
 
             return buf.toString();
         } catch (Exception e) {
-            return null;
+            throw new RuntimeException(e);
         }
     }
 
-    private static String insert(MappedStatement mappedStatement, Class<?> mapperClass, Class<?> modelClass, Class<?> primaryFieldClass, Method builderMethod, ResultMap resultMap) {
+    private static String insert(MappedStatement mappedStatement, Class<?> mapperClass, Class<?> modelClass, Class<?> primaryFieldClass, ResultMap resultMap) {
         try {
             StringBuilder buf = new StringBuilder();
 
             Boolean generated = false;
 
-            Method mapperMethod = getMapperMethod0(mappedStatement, mapperClass, modelClass);
+            Method mapperMethod = getMapperMethod(mappedStatement, mapperClass, modelClass);
             Options methodOptions = mapperMethod.getAnnotation(Options.class);
             if (methodOptions != null) {
                 generated = methodOptions.useGeneratedKeys();
@@ -183,11 +106,11 @@ public class SqlSourceBuilder {
 
             return buf.toString();
         } catch (Exception e) {
-            return null;
+            throw new RuntimeException(e);
         }
     }
 
-    private static String updateById(MappedStatement mappedStatement, Class<?> mapperClass, Class<?> modelClass, Class<?> primaryFieldClass, Method builderMethod, ResultMap resultMap) {
+    private static String updateById(MappedStatement mappedStatement, Class<?> mapperClass, Class<?> modelClass, Class<?> primaryFieldClass, ResultMap resultMap) {
         try {
             StringBuilder buf = new StringBuilder();
 
@@ -212,11 +135,11 @@ public class SqlSourceBuilder {
 
             return buf.toString();
         } catch (Exception e) {
-            return null;
+            throw new RuntimeException(e);
         }
     }
 
-    private static String deleteById(MappedStatement mappedStatement, Class<?> mapperClass, Class<?> modelClass, Class<?> primaryFieldClass, Method builderMethod, ResultMap resultMap) {
+    private static String deleteById(MappedStatement mappedStatement, Class<?> mapperClass, Class<?> modelClass, Class<?> primaryFieldClass, ResultMap resultMap) {
         try {
             StringBuilder buf = new StringBuilder();
 
@@ -226,11 +149,11 @@ public class SqlSourceBuilder {
 
             return buf.toString();
         } catch (Exception e) {
-            return null;
+            throw new RuntimeException(e);
         }
     }
 
-    private static String existById(MappedStatement mappedStatement, Class<?> mapperClass, Class<?> modelClass, Class<?> primaryFieldClass, Method builderMethod, ResultMap resultMap) {
+    private static String existById(MappedStatement mappedStatement, Class<?> mapperClass, Class<?> modelClass, Class<?> primaryFieldClass, ResultMap resultMap) {
         try {
             StringBuilder buf = new StringBuilder();
 
@@ -240,8 +163,79 @@ public class SqlSourceBuilder {
 
             return buf.toString();
         } catch (Exception e) {
-            return null;
+            throw new RuntimeException(e);
         }
+    }
+
+    private static Class<?> getProviderClass(MappedStatement mappedStatement) {
+        try {
+            Field providerTypeField = ProviderSqlSource.class.getDeclaredField("providerType");
+            providerTypeField.setAccessible(true);
+            Class<?> clazz = (Class<?>) providerTypeField.get(mappedStatement.getSqlSource());
+            return clazz;
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static Class<?> getMapperClass(MappedStatement mappedStatement) {
+        try {
+            String mappedStatementId = mappedStatement.getId();
+            String className = mappedStatementId.substring(0, mappedStatementId.lastIndexOf("."));
+            return Class.forName(className);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static Method getMapperMethod(MappedStatement mappedStatement, Class<?> mapperClass, Class<?>... parameterTypes) {
+        String mappedStatementId = mappedStatement.getId();
+        String methodName = mappedStatementId.substring(mappedStatementId.lastIndexOf(".") + 1);
+        Method[] methods = mapperClass.getMethods();
+        for (Method method : methods) {
+            if (!method.getName().equals(methodName))
+                continue;
+            Class<?>[] types = method.getParameterTypes();
+            if (types.length == parameterTypes.length) {
+                boolean isEqual = true;
+                for (int i = 0; i < types.length; i++) {
+                    if (types[i] == Object.class)
+                        continue;
+                    if (types[i] != parameterTypes[i])
+                        isEqual = false;
+                }
+                if (isEqual)
+                    return method;
+            }
+        }
+        return null;
+    }
+
+    private static String getSqlScript(MappedStatement mappedStatement, Class<?> mapperClass, Class<?> modelClass, Class<?> primaryFieldClass, ResultMap resultMap) {
+        try {
+            Method builderMethod = getBuilderMethod(mappedStatement, SqlSourceBuilder.class, MappedStatement.class, Class.class, Class.class, Class.class, ResultMap.class);
+            return builderMethod.invoke(null, mappedStatement, mapperClass, modelClass, primaryFieldClass, resultMap).toString();
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static Method getBuilderMethod(MappedStatement mappedStatement, Class<?> builderClass, Class<?>... parameterTypes) {
+        try {
+            String mappedStatementId = mappedStatement.getId();
+            String methodName = mappedStatementId.substring(mappedStatementId.lastIndexOf(".") + 1);
+            return builderClass.getDeclaredMethod(methodName, parameterTypes);
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static ResultMap getResultMap(MappedStatement mappedStatement, Class<?> modelClass) {
+        Configuration configuration = mappedStatement.getConfiguration();
+        for (ResultMap resultMap : configuration.getResultMaps())
+            if (modelClass == resultMap.getType() && !resultMap.getId().contains("-"))
+                return resultMap;
+        return null;
     }
 
     private static String getTableName(Class<?> mapperClass, Class<?> modelClass, ResultMap resultMap) {
@@ -271,21 +265,7 @@ public class SqlSourceBuilder {
         return null;
     }
 
-    private static String toUnderline(String str) {
-        StringBuilder buf = new StringBuilder();
-        buf.append(Character.toLowerCase(str.charAt(0)));
-        for (int i = 1; i < str.length(); i++) {
-            char c = str.charAt(i);
-            if (Character.isUpperCase(c)) {
-                buf.append("_" + Character.toLowerCase(c));
-            } else {
-                buf.append(c);
-            }
-        }
-        return buf.toString();
-    }
-
-    public static Class<?>[] getMapperGenerics(Class<?> mapperClass) {
+    private static Class<?>[] getMapperGenerics(Class<?> mapperClass) {
         Type[] types = mapperClass.getGenericInterfaces();
         for (Type type : types) {
             ParameterizedType parameterizedType = (ParameterizedType) type;
@@ -300,7 +280,7 @@ public class SqlSourceBuilder {
         return null;
     }
 
-    public static Field[] getModelField(Class<?> modelClass) {
+    private static Field[] getModelField(Class<?> modelClass) {
         List<Field> fields = new ArrayList<>();
         Field[] declaredFields = modelClass.getDeclaredFields();
         for (Field field : declaredFields) {
@@ -309,6 +289,20 @@ public class SqlSourceBuilder {
             fields.add(field);
         }
         return fields.toArray(new Field[0]);
+    }
+
+    private static String toUnderline(String str) {
+        StringBuilder buf = new StringBuilder();
+        buf.append(Character.toLowerCase(str.charAt(0)));
+        for (int i = 1; i < str.length(); i++) {
+            char c = str.charAt(i);
+            if (Character.isUpperCase(c)) {
+                buf.append("_" + Character.toLowerCase(c));
+            } else {
+                buf.append(c);
+            }
+        }
+        return buf.toString();
     }
 
 }
