@@ -4,4 +4,6 @@
 
 [Mybatis - 纯注解、零XML](mybatis-example-annotation)
 
-[Mybatis - 自定义BaseMapper](mybatis-example-language-driver)
+[Mybatis - 自定义BaseMapper LanguageDriver篇](mybatis-example-language-driver)
+
+[Mybatis - 自定义BaseMapper SQLProvider篇](mybatis-example-sql-provider)

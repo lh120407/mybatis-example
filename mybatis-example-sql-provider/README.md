@@ -1,4 +1,4 @@
-# Mybatis - 自定义BaseMapper 2
+# Mybatis - 自定义BaseMapper SQLProvider篇
 
 ## SQL Provider
 
