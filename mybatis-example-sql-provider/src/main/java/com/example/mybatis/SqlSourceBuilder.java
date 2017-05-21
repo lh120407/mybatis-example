@@ -85,7 +85,7 @@ public class SqlSourceBuilder {
             for (Field field : fields) {
                 if (generated && primaryColumnName.equals(field.getName()))
                     continue;
-                buf.append(String.format("<if test=\"%s != null and %s != ''\">", field.getName(), field.getName()));
+                buf.append(String.format("<if test=\"%s != null\">", field.getName()));
                 ResultMapping resultMapping = getResultMapping(resultMap, field.getName());
                 buf.append(String.format("%s,", resultMapping == null ? field.getName() : resultMapping.getColumn()));
                 buf.append("</if>");
@@ -98,7 +98,7 @@ public class SqlSourceBuilder {
             for (Field field : fields) {
                 if (generated && primaryColumnName.equals(field.getName()))
                     continue;
-                buf.append(String.format("<if test=\"%s != null and %s != ''\">", field.getName(), field.getName()));
+                buf.append(String.format("<if test=\"%s != null\">", field.getName()));
                 buf.append(String.format("#{%s},", field.getName()));
                 buf.append("</if>");
             }
@@ -124,7 +124,7 @@ public class SqlSourceBuilder {
             for (Field field : fields) {
                 if (primaryColumnName.equals(field.getName()))
                     continue;
-                buf.append(String.format("<if test=\"%s != null and %s != ''\">", field.getName(), field.getName()));
+                buf.append(String.format("<if test=\"%s != null\">", field.getName()));
                 ResultMapping resultMapping = getResultMapping(resultMap, field.getName());
                 buf.append(String.format("%s = #{%s},", resultMapping == null ? field.getName() : resultMapping.getColumn(), field.getName()));
                 buf.append("</if>");
