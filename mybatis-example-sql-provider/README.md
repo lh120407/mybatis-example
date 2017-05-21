@@ -1,130 +1,127 @@
-# Mybatis - 自定义BaseMapper
+# Mybatis - 自定义BaseMapper 2
 
-## LanguageDriver
+## SQL Provider
 
-MyBatis 从 3.2 开始支持可插拔的脚本语言，因此你可以在插入一种语言的驱动（language driver）之后来写基于这种语言的动态 SQL 查询。
+- @InsertProvider
+- @UpdateProvider
+- @DeleteProvider
+- @SelectProvider
 
-可以通过实现下面接口的方式来插入一种语言：
-
-```java
-public interface LanguageDriver {
-    ParameterHandler createParameterHandler(MappedStatement mappedStatement, Object parameterObject, BoundSql boundSql);
-    SqlSource createSqlSource(Configuration configuration, XNode script, Class<?> parameterType);
-    SqlSource createSqlSource(Configuration configuration, String script, Class<?> parameterType);
-}
-```
-
-一旦有了自定义的语言驱动，你就可以在 mybatis-config.xml 文件中将它设置为默认语言：
-
-```xml
-<typeAliases>
-    <typeAlias type="org.sample.MyLanguageDriver" alias="myLanguage"/>
-</typeAliases>
-<settings>
-    <setting name="defaultScriptingLanguage" value="myLanguage"/>
-</settings>
-```
-
-除了设置默认语言，你也可以针对特殊的语句指定特定语言，这可以通过如下的 `lang` 属性来完成：
-
-```xml
-<select id="selectBlog" lang="myLanguage">
-    SELECT * FROM BLOG
-</select>
-```
-
-或者在你正在使用的映射中加上注解 `@Lang` 来完成：
+这些可选的SQL注解允许你指定一个类名和一个方法，在执行时来返回动态的SQL。
 
 ```java
-public interface Mapper {
-    @Lang(MyLanguageDriver.class)
-    @Select("SELECT * FROM BLOG")
-    List<Blog> selectBlog();
+@SelectProvider(type = UserSqlBuilder.class, method = "buildGetUsersByName")
+List<User> getUsersByName(String name);
+
+class UserSqlBuilder {
+    public String buildGetUsersByName(final String name) {
+        return new SQL(){{
+            SELECT("*");
+            FROM("users");
+            if (name != null) {
+                WHERE("name like #{value} || '%'");
+            }
+            ORDER_BY("id");
+        }}.toString();
+    }
 }
 ```
 
 ## BaseMapper
 
-我们可以使用 `LanguageDriver` 构建属于自己的BaseMapper。
+我们可以使用 `SQLProvider` 构建属于自己的BaseMapper。
 
 ```java
 public interface BaseMapper<T, K> {
-    @Lang(BaseMapperDriver.class)
-    @Insert({"<script>", "INSERT INTO ${table} ${values}", "</script>"})
+    @InsertProvider(type = SqlSourceBuilder.class, method = "build")
     public Long insert(T model);
 
-    @Lang(BaseMapperDriver.class)
-    @Update({"<script>", "UPDATE ${table} ${sets} WHERE ${id}=#{id}", "</script>"})
+    @UpdateProvider(type = SqlSourceBuilder.class, method = "build")
     public Long updateById(T model);
 
-    @Lang(BaseMapperDriver.class)
-    @Delete("DELETE FROM ${table} WHERE ${id}=#{id}")
+    @DeleteProvider(type = SqlSourceBuilder.class, method = "build")
     public Long deleteById(@Param("id") K id);
 
-    @Lang(BaseMapperDriver.class)
-    @Select("SELECT * FROM ${table} WHERE ${id}=#{id}")
+    @SelectProvider(type = SqlSourceBuilder.class, method = "build")
     public T getById(@Param("id") K id);
 
-    @Lang(BaseMapperDriver.class)
-    @Select("SELECT COUNT(1) FROM ${table} WHERE ${id}=#{id}")
+    @SelectProvider(type = SqlSourceBuilder.class, method = "build")
     public Boolean existById(@Param("id") K id);
 }
 ```
 
-但是由于 `createSqlSource` 在构建的过程中，并没办法知道当前正在解析的Mapper，因此我们得对源码做一些小小的改动。
+#### SqlSourceBuilder
 
-#### 重写 `org.apache.ibatis.binding.MapperRegistry`
-
-在 `addMapper` 方法中，把当前正在解析的Mapper放在一下全局变量中。 
+把用SQLProvider生成的ProviderSqlSource替换成DynamicSqlSource
 
 ```java
-public class MybatisMapperRegistry extends MapperRegistry {
-    ...
-    public <T> void addMapper(Class<T> type) {
-            ...
-                MapperAnnotationBuilder parser = new MapperAnnotationBuilder(config, type);
-                currentMapper.set(type);
-                parser.parse();
-                loadCompleted = true;
-                currentMapper.set(null);
-            ...
+public class SqlSourceBuilder {
+    public static String build(Configuration configuration) {
+        for (MappedStatement mappedStatement : configuration.getMappedStatements()) {
+            if (mappedStatement.getSqlSource() instanceof ProviderSqlSource) {
+                Class<?> providerClass = getProviderClass(mappedStatement);
+                if (providerClass != SqlSourceBuilder.class)
+                    continue;
+
+                Class<?> mapperClass = getMapperClass(mappedStatement);
+                Class<?>[] generics = getMapperGenerics(mapperClass);
+                Class<?> modelClass = generics[0];
+                Class<?> primaryFieldClass = generics[1];
+                ResultMap resultMap = getResultMap(mappedStatement, modelClass);
+
+                String sqlScript = getSqlScript(mappedStatement, mapperClass, modelClass, primaryFieldClass, resultMap);
+                SqlSource sqlSource = createSqlSource(mappedStatement, sqlScript);
+                setSqlSource(mappedStatement, sqlSource);
+            }
         }
+        return "sql";
     }
-}
-```
-
-#### 重写 `org.apache.ibatis.session.Configuration`
-
-使用重写后的 `MybatisMapperRegistry`
-
-```java
-public class MybatisConfiguration extends Configuration {
-    protected final MapperRegistry mapperRegistry = new MybatisMapperRegistry(this);
     ...
 }
 ```
 
-## BaseMapperDriver
-
-获取当前正在解析的Mapper，并通过反射知悉是那个实体的操作，从而替换关键的字符，例如表名，主键等。
+#### MapperTest 测试
 
 ```java
-public class BaseMapperDriver extends XMLLanguageDriver {
-    @Override
-    public SqlSource createSqlSource(Configuration configuration, String script, Class<?> parameterType) {
-        Class<?> mapperClass = MybatisMapperRegistry.getCurrentMapper();
+public class MapperTest {
+    @Test
+    public void test() throws Exception {
+        SqlSessionFactory sessionFactory = MybatisConfig.getSessionFactory();
+        SqlSession session = sessionFactory.openSession();
 
-        Class<?>[] generics = MybatisReflectUtil.getMapperGenerics(mapperClass);
-        Class<?> modelClass = generics[0];
-        Class<?> idClass = generics[1];
+        UserMapper userMapper = session.getMapper(UserMapper.class);
 
-        ResultMap resultMap = getResultMap(configuration.getResultMaps(), modelClass);
-        script = setTable(script, mapperClass, modelClass, idClass, resultMap);
-        script = setId(script, mapperClass, modelClass, idClass, resultMap);
-        script = setValues(script, mapperClass, modelClass, idClass, resultMap);
-        script = setSets(script, mapperClass, modelClass, idClass, resultMap);
+        User user = null;
 
-        return super.createSqlSource(configuration, script, parameterType);
+        // 新增测试
+        System.out.println("------------ 新增测试 ------------");
+        user = new User();
+        user.setId(1L);
+        user.setAccount("conanli");
+        user.setPassword("123456");
+        System.out.println("insert: " + userMapper.insert(user));
+
+        // 更新测试
+        System.out.println("------------ 更新测试 ------------");
+        user = new User();
+        user.setId(1L);
+        user.setPassword("111111");
+        System.out.println("update: " + userMapper.updateById(user));
+
+        // 获取测试
+        System.out.println("------------ 获取测试 ------------");
+        System.out.println("user: " + userMapper.getById(1L));
+
+        // 删除测试
+        System.out.println("------------ 删除测试 ------------");
+        System.out.println("delete: " + userMapper.deleteById(1L));
+
+        // 存在测试
+        System.out.println("------------ 存在测试 ------------");
+        System.out.println("exist: " + userMapper.existById(1L));
+
+        session.commit();
+        session.close();
     }
 }
 ```
